@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEPLAN — Monitor de Processos</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Cabinet+Grotesk:wght@400;500;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08090c;--s1:#0f1117;--s2:#161a24;--s3:#1e2230;--border:#222636;--border2:#2d3347;--text:#eef0f8;--sub:#8892a8;--muted:#4d566b;--accent:#4f7cff;--teal:#00cba9;--danger:#f04c5a;--warn:#f5a623;--ok:#27c47a;--purple:#9b6dff;--r:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ─── HEADER ─── */
+header{display:flex;align-items:center;gap:12px;padding:0 24px;height:54px;background:var(--s1);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:9px;margin-right:2px}
+.logo-mark{width:28px;height:28px;border-radius:6px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--teal));display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:#fff}
+.logo-name{font-family:'Cabinet Grotesk',sans-serif;font-size:14px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+.logo-dot{color:var(--accent)}
+.hdiv{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.hnav{display:flex;gap:1px}
+.hnav-btn{padding:5px 12px;border-radius:6px;border:none;background:none;color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:'Inter',sans-serif}
+.hnav-btn:hover{color:var(--text);background:var(--s2)}
+.hnav-btn.active{color:var(--accent);background:rgba(79,124,255,.1)}
+.hspace{flex:1}
+.htime{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap}
+
+/* compact upload */
+.upload-compact{position:relative;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;border-radius:7px;border:1px dashed var(--border2);background:var(--s2);cursor:pointer;transition:all .18s}
+.upload-compact:hover,.upload-compact.drag-over{border-color:var(--accent);background:rgba(79,124,255,.07)}
+.upload-compact input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-label{font-size:11px;color:var(--sub);white-space:nowrap}
+.upload-label strong{color:var(--text);font-weight:500}
+.upload-cta{position:relative;z-index:1;background:var(--accent);color:#fff;border:none;padding:5px 11px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap;font-family:'Inter',sans-serif}
+.upload-cta:hover{opacity:.85}
+
+.hpill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--s2);font-family:'Space Mono',monospace;font-size:10px;color:var(--sub);white-space:nowrap}
+.hpill.ok{color:var(--ok);border-color:rgba(39,196,122,.2);background:rgba(39,196,122,.06)}
+.hpill.err{color:var(--danger);border-color:rgba(240,76,90,.2);background:rgba(240,76,90,.06)}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* ─── LOADING ─── */
+#loading{display:none;position:fixed;inset:0;background:rgba(8,9,12,.82);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(4px)}
+.spin{width:34px;height:34px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loadingMsg{font-family:'Space Mono',monospace;font-size:11px;color:var(--sub)}
+
+/* ─── TOAST ─── */
+#toast{position:fixed;bottom:22px;right:22px;z-index:9999;padding:10px 16px;border-radius:8px;font-size:12px;display:none;align-items:center;gap:8px;box-shadow:0 8px 28px rgba(0,0,0,.45);animation:slideUp .2s ease}
+#toast.ok{background:rgba(39,196,122,.12);border:1px solid rgba(39,196,122,.3);color:var(--ok)}
+#toast.err{background:rgba(240,76,90,.12);border:1px solid rgba(240,76,90,.3);color:var(--danger)}
+@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ─── PANELS ─── */
+.panel{display:none;padding:22px 24px 60px}
+.panel.active{display:block}
+
+/* empty */
+#empty{padding:80px 24px;text-align:center}
+.empty-icon{font-size:44px;opacity:.22;margin-bottom:14px}
+.empty-title{font-family:'Cabinet Grotesk',sans-serif;font-size:20px;font-weight:800;margin-bottom:8px}
+.empty-sub{font-size:13px;color:var(--sub);max-width:360px;margin:0 auto;line-height:1.65}
+
+/* ─── KPI STRIP ─── */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:15px 17px;position:relative;overflow:hidden;transition:transform .15s,border-color .15s}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2)}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.kt::after{background:var(--accent)}.kpi.ka::after{background:var(--danger)}.kpi.kd::after{background:var(--ok)}.kpi.kp::after{background:var(--purple)}.kpi.ke::after{background:var(--warn)}
+.kpi-label{font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px}
+.kpi-val{font-family:'Cabinet Grotesk',sans-serif;font-size:36px;font-weight:800;line-height:1;margin-bottom:4px}
+.kpi.kt .kpi-val{color:var(--accent)}.kpi.ka .kpi-val{color:var(--danger)}.kpi.kd .kpi-val{color:var(--ok)}.kpi.kp .kpi-val{color:var(--purple)}.kpi.ke .kpi-val{color:var(--warn)}
+.kpi-sub{font-size:10.5px;color:var(--muted)}
+
+/* ─── MID ROW ─── */
+.mid-row{display:grid;grid-template-columns:210px 1fr;gap:8px;margin-bottom:18px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.card-title{font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* donut */
+.donut-wrap{display:flex;align-items:center;gap:14px}
+.leg{display:flex;flex-direction:column;gap:7px;flex:1}
+.leg-row{display:flex;align-items:center;gap:7px;font-size:11px}
+.leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.leg-name{color:var(--sub);flex:1}
+.leg-n{font-family:'Space Mono',monospace;font-size:10px}
+
+/* bars */
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar-top{display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px}
+.bar-name{color:var(--text)}
+.bar-nums{font-family:'Space Mono',monospace;color:var(--muted);font-size:10px}
+.bar-track{height:4px;background:var(--s3);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--danger));transition:width .7s cubic-bezier(.4,0,.2,1)}
+
+/* ─── TABLE ─── */
+.table-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.table-bar{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.srch{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;width:200px;font-family:'Inter',sans-serif;transition:border-color .15s}
+.srch:focus{border-color:var(--accent)}
+.srch::placeholder{color:var(--muted)}
+.fsel{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;cursor:pointer}
+.ftog{padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--s2);color:var(--muted);font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .15s}
+.ftog.on{background:rgba(240,76,90,.1);border-color:rgba(240,76,90,.35);color:var(--danger)}
+.tcnt{margin-left:auto;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted)}
+.twrap{overflow-x:auto;max-height:490px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 13px;text-align:left;font-family:'Space Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);background:var(--s2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;white-space:nowrap;cursor:pointer;transition:color .12s}
+thead th:hover{color:var(--text)}
+thead th.srt{color:var(--accent)}
+tbody tr{border-bottom:1px solid rgba(30,34,48,.8);transition:background .1s}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody tr.late{background:rgba(240,76,90,.03)}
+tbody tr.late:hover{background:rgba(240,76,90,.07)}
+td{padding:8px 13px;vertical-align:middle;white-space:nowrap}
+.tn{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent)}
+.tdate{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--muted)}
+.tsub{max-width:220px;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'Space Mono',monospace}
+.b-tram{background:rgba(79,124,255,.12);color:#7ea6ff}
+.b-abert{background:rgba(245,166,35,.12);color:#f5c35a}
+.b-anal{background:rgba(245,166,35,.08);color:var(--warn)}
+.b-par{background:rgba(155,109,255,.12);color:#c4a0ff}
+.db{display:inline-flex;align-items:center;gap:3px;font-family:'Space Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700}
+.db-ok{background:rgba(39,196,122,.1);color:#52e09a}
+.db-warn{background:rgba(245,166,35,.1);color:#f5c35a}
+.db-bad{background:rgba(240,76,90,.12);color:#f87181}
+.db-crit{background:rgba(240,76,90,.22);color:#fca5a5}
+
+/* ─── HISTÓRICO ─── */
+.hist-chart-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-top:10px}
+.hcard{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 13px;transition:border-color .15s}
+.hcard:hover{border-color:var(--accent)}
+.hdate{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:7px}
+.htot{font-family:'Cabinet Grotesk',sans-serif;font-size:24px;font-weight:800}
+.hbad{font-size:11px;color:var(--danger);margin-top:2px}
+.hpct{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted)}
+.htrend{font-size:11px;margin-top:4px}
+.tup{color:var(--danger)}.tdn{color:var(--ok)}.teq{color:var(--muted)}
+
+/* ─── RELATÓRIOS ─── */
+.rlist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.ritem{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px}
+.rdate{font-family:'Space Mono',monospace;font-size:10px;color:var(--accent);min-width:126px}
+.rfile{font-size:12px;color:var(--sub);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rstats{display:flex;gap:12px;font-family:'Space Mono',monospace;font-size:10px}
+.rtot{color:var(--text)}.rbad{color:var(--danger)}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spin"></div><div id="loadingMsg">Processando…</div></div>
+<div id="toast"></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">SP</div>
+    <div class="logo-name">SEPLAN<span class="logo-dot">.</span>Monitor</div>
+  </div>
+  <div class="hdiv"></div>
+  <nav class="hnav">
+    <button class="hnav-btn active" onclick="showTab('painel',this)">Painel</button>
+    <button class="hnav-btn" onclick="showTab('historico',this)">Histórico</button>
+    <button class="hnav-btn" onclick="showTab('relatorios',this)">Relatórios</button>
+  </nav>
+  <div class="hspace"></div>
+  <div class="htime" id="htime">—</div>
+  <div class="hdiv"></div>
+  <div class="upload-compact" id="uploadZone">
+    <input type="file" id="fileInput" accept=".pdf">
+    <span class="upload-label"><strong>Importar</strong> PDF do IPM</span>
+    <button class="upload-cta" onclick="document.getElementById('fileInput').click();event.stopPropagation()">Selecionar</button>
+  </div>
+  <div class="hdiv"></div>
+  <div class="hpill" id="dbStatus"><div class="dot"></div>Conectando</div>
+</header>
+
+<!-- PAINEL -->
+<div class="panel active" id="tab-painel">
+  <div id="empty">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">Nenhum dado carregado</div>
+    <div class="empty-sub">Selecione o PDF diário do IPM no campo acima. Os dados são salvos automaticamente e ficam acessíveis para toda a equipe.</div>
+  </div>
+  <div id="dashboard" style="display:none">
+    <div class="kpi-strip">
+      <div class="kpi kt"><div class="kpi-label">Total de Processos</div><div class="kpi-val" id="sTotal">0</div><div class="kpi-sub">registros ativos</div></div>
+      <div class="kpi ka"><div class="kpi-label">⚠ Atrasados +30 dias</div><div class="kpi-val" id="sAtrasados">0</div><div class="kpi-sub" id="sAtrasadosPct">—</div></div>
+      <div class="kpi kd"><div class="kpi-label">✓ Em Dia ≤30 dias</div><div class="kpi-val" id="sEmDia">0</div><div class="kpi-sub" id="sEmDiaPct">—</div></div>
+      <div class="kpi kp"><div class="kpi-label">◎ Paralisados</div><div class="kpi-val" id="sParalisados">0</div><div class="kpi-sub">situação paralisado</div></div>
+      <div class="kpi ke"><div class="kpi-label">◑ Em Análise</div><div class="kpi-val" id="sAnalise">0</div><div class="kpi-sub">aguardando análise</div></div>
+    </div>
+    <div class="mid-row">
+      <div class="card">
+        <div class="card-title">Situação</div>
+        <div class="donut-wrap">
+          <svg id="donutSvg" width="96" height="96" viewBox="0 0 100 100" style="flex-shrink:0"></svg>
+          <div class="leg" id="donutLeg"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top subassuntos com atraso</div>
+        <div class="bars" id="barList"></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-bar">
+        <input class="srch" id="srch" placeholder="Buscar número, subassunto…" oninput="renderTable()">
+        <select class="fsel" id="fSit" onchange="renderTable()">
+          <option value="">Todas situações</option>
+          <option>Tramitando</option><option>Aberto</option><option>Em Análise</option><option>Paralisado</option>
+        </select>
+        <select class="fsel" id="fSub" onchange="renderTable()"><option value="">Todos subassuntos</option></select>
+        <button class="ftog" id="btnLate" onclick="toggleLate()">Só atrasados</button>
+        <div class="tcnt" id="tcnt">0 processos</div>
+      </div>
+      <div class="twrap">
+        <table>
+          <thead><tr>
+            <th onclick="sortBy('numero')">Nº / Ano</th>
+            <th onclick="sortBy('data_tramite')">Último Trâmite</th>
+            <th onclick="sortBy('situacao')">Situação</th>
+            <th onclick="sortBy('subassunto')">Subassunto</th>
+            <th onclick="sortBy('dias_parado')">Dias parado</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="panel" id="tab-historico">
+  <div class="hist-chart-card">
+    <div class="card-title">Evolução — atrasados vs total</div>
+    <canvas id="histChart" height="70"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title">Snapshots diários</div>
+    <div class="hgrid" id="hgrid"></div>
+  </div>
+</div>
+
+<!-- RELATÓRIOS -->
+<div class="panel" id="tab-relatorios">
+  <div class="card">
+    <div class="card-title">Histórico de importações</div>
+    <div class="rlist" id="rlist"><div style="font-size:13px;color:var(--muted)">Nenhuma importação ainda.</div></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='';
+const SUPA_URL='https://qxuzkjlbjbuuqqsaxxmr.supabase.co';
+const SUPA_KEY='sb_publishable_lztsV4TGhc-VKbHFiEsxLA_1dIKMkTh';
+const supa={async req(method,path,body){const r=await fetch(`${SUPA_URL}/rest/v1/${path}`,{method,headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':method==='POST'?'return=representation':''},body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error(await r.text());return r.status===204?null:r.json()},get:p=>supa.req('GET',p),post:(p,b)=>supa.req('POST',p,b)};
+let allData=[],sortCol='dias_parado',sortDir='desc',onlyLate=false,hChart=null;
+
+async function init(){await checkDB();await loadLatest();await loadHistorico();await loadRelatorios();}
+
+async function checkDB(){try{await supa.get('relatorios?select=id&limit=1');const e=document.getElementById('dbStatus');e.innerHTML='<div class="dot"></div>Banco conectado';e.className='hpill ok';}catch{const e=document.getElementById('dbStatus');e.innerHTML='<div class="dot"></div>Sem conexão';e.className='hpill err';}}
+
+function showTab(name,btn){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.hnav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');btn.classList.add('active');if(name==='historico')loadHistorico();if(name==='relatorios')loadRelatorios();}
+
+function toast(msg,type='ok'){const el=document.getElementById('toast');el.textContent=(type==='ok'?'✓  ':'✕  ')+msg;el.className=type;el.style.display='flex';setTimeout(()=>el.style.display='none',3800);}
+function showLoading(msg){document.getElementById('loadingMsg').textContent=msg;document.getElementById('loading').style.display='flex';}
+function hideLoading(){document.getElementById('loading').style.display='none';}
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f?.type==='application/pdf')processFile(f);});
+document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])processFile(e.target.files[0]);});
+
+async function processFile(file){
+  showLoading('Lendo PDF…');
+  try{
+    const records=await parsePDF(file);
+    if(!records.length)throw new Error('Nenhum registro encontrado no PDF.');
+    showLoading(`Salvando ${records.length} processos…`);
+    await saveToSupabase(records,file.name);
+    showLoading('Atualizando painel…');
+    await loadLatest();await loadRelatorios();
+    toast(`${records.length} processos importados!`,'ok');
+  }catch(e){toast('Erro: '+e.message,'err');console.error(e);}
+  finally{hideLoading();document.getElementById('fileInput').value='';}
+}
+
+async function parsePDF(file){
+  const ab=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise;
+  const pageLines=[];let yOffset=0;
+  for(let pn=1;pn<=pdf.numPages;pn++){
+    const page=await pdf.getPage(pn);
+    const content=await page.getTextContent();
+    const vp=page.getViewport({scale:1});
+    const lm=new Map();
+    for(const item of content.items){
+      if(!item.str?.trim())continue;
+      const y=Math.round(vp.height-item.transform[5]);
+      let matched=false;
+      for(const[ky]of lm){if(Math.abs(ky-y)<=3){lm.get(ky).push({x:item.transform[4],str:item.str.trim()});matched=true;break;}}
+      if(!matched)lm.set(y,[{x:item.transform[4],str:item.str.trim()}]);
+    }
+    for(const[y,ws]of[...lm.entries()].sort((a,b)=>a[0]-b[0]))
+      pageLines.push({y:yOffset+y,text:ws.sort((a,b)=>a.x-b.x).map(w=>w.str).join(' ')});
+    yOffset+=10000;
+  }
+  return extractFromLines(pageLines);
+}
+
+function parseDias(s){if(!s)return 0;if(/hoje/i.test(s))return 0;const m=s.match(/(\d+)\s*dia/i);return m?parseInt(m[1]):0;}
+function parseData(s){if(!s)return null;const m=s.match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?`${m[3]}-${m[2]}-${m[1]}`:null;}
+
+function extractFromLines(lines){
+  const records=[];
+  const mainRx=/^(\d{1,6}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(Tramitando|Aberto|Em Análise|Paralisado)\s+SEPLAN\s+(.+?)\s+(Hoje|\d+\s*Dias?)$/i;
+  const contRx=/^\d{2}:\d{2}:\d{2}\s+(.+)$/;
+  const caps2Rx=/^[A-ZÁÉÍÓÚÇÃÕ][A-ZÁÉÍÓÚÇÃÕ/ ]{3,}$/;
+  for(let i=0;i<lines.length;i++){
+    const m=lines[i].text.match(mainRx);if(!m)continue;
+    let sub=m[4].trim();
+    for(let k=1;k<=2;k++){
+      if(i+k>=lines.length)break;
+      const nx=lines[i+k].text;
+      const mc=nx.match(contRx);
+      if(mc){sub+=' '+mc[1].trim();continue;}
+      if(caps2Rx.test(nx)&&!nx.match(/^\d{1,6}\/\d{4}/))sub+=' '+nx.trim();
+    }
+    records.push({numero:m[1],ano:parseInt(m[1].split('/')[1]),data_tramite:parseData(m[2]),situacao:m[3],subassunto:sub.replace(/\s+/g,' ').trim(),dias_parado:parseDias(m[5]),dias_str:m[5].trim()});
+  }
+  return records;
+}
+
+async function saveToSupabase(records,filename){
+  const total=records.length,atrasados=records.filter(r=>r.dias_parado>30).length;
+  const[rel]=await supa.post('relatorios',{nome_arquivo:filename,total_registros:total,total_atrasados:atrasados,data_relatorio:new Date().toISOString().split('T')[0]});
+  for(let i=0;i<records.length;i+=200)await supa.post('processos',records.slice(i,i+200).map(r=>({...r,relatorio_id:rel.id})));
+  await supa.post('snapshots_diarios',{data_snapshot:new Date().toISOString().split('T')[0],total_processos:total,total_atrasados:atrasados,total_em_dia:records.filter(r=>r.dias_parado<=30).length,total_paralisados:records.filter(r=>r.situacao==='Paralisado').length,total_analise:records.filter(r=>r.situacao==='Em Análise').length,pct_atrasados:parseFloat((atrasados/total*100).toFixed(2)),relatorio_id:rel.id});
+}
+
+async function loadLatest(){
+  try{
+    const rels=await supa.get('relatorios?select=*&order=importado_em.desc&limit=1');
+    if(!rels?.length)return;
+    const rel=rels[0];
+    const procs=await supa.get(`processos?relatorio_id=eq.${rel.id}&select=*&order=dias_parado.desc`);
+    if(!procs?.length)return;
+    allData=procs;
+    const d=new Date(rel.importado_em);
+    document.getElementById('htime').textContent=`${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+    updateDashboard();
+    document.getElementById('empty').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+  }catch(e){console.warn(e.message);}
+}
+
+function updateDashboard(){
+  const total=allData.length,at=allData.filter(r=>r.dias_parado>30).length,ed=total-at,par=allData.filter(r=>r.situacao==='Paralisado').length,an=allData.filter(r=>r.situacao==='Em Análise').length;
+  document.getElementById('sTotal').textContent=total;
+  document.getElementById('sAtrasados').textContent=at;
+  document.getElementById('sAtrasadosPct').textContent=total?`${Math.round(at/total*100)}% do total`:'—';
+  document.getElementById('sEmDia').textContent=ed;
+  document.getElementById('sEmDiaPct').textContent=total?`${Math.round(ed/total*100)}% do total`:'—';
+  document.getElementById('sParalisados').textContent=par;
+  document.getElementById('sAnalise').textContent=an;
+  drawDonut();drawBars();fillFilters();renderTable();
+}
+
+function drawDonut(){
+  const C={'Tramitando':'#4f7cff','Aberto':'#f5a623','Em Análise':'#f5c35a','Paralisado':'#9b6dff'};
+  const counts={};for(const r of allData)counts[r.situacao]=(counts[r.situacao]||0)+1;
+  const total=allData.length,svg=document.getElementById('donutSvg');svg.innerHTML='';
+  const bg=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  bg.setAttribute('cx','50');bg.setAttribute('cy','50');bg.setAttribute('r','40');
+  bg.setAttribute('fill','none');bg.setAttribute('stroke','#1e2230');bg.setAttribute('stroke-width','14');
+  svg.appendChild(bg);
+  const circ=2*Math.PI*40;let off=0;
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  for(const[sit,cnt]of entries){
+    const dash=(cnt/total)*circ,c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx','50');c.setAttribute('cy','50');c.setAttribute('r','40');
+    c.setAttribute('fill','none');c.setAttribute('stroke',C[sit]||'#888');c.setAttribute('stroke-width','14');
+    c.setAttribute('stroke-dasharray',`${dash} ${circ-dash}`);
+    c.setAttribute('stroke-dashoffset',-off+circ/4);
+    svg.appendChild(c);off+=dash;
+  }
+  const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x','50');t.setAttribute('y','47');t.setAttribute('text-anchor','middle');
+  t.setAttribute('fill','#eef0f8');t.setAttribute('font-family','Cabinet Grotesk,sans-serif');
+  t.setAttribute('font-size','18');t.setAttribute('font-weight','800');t.textContent=total;svg.appendChild(t);
+  const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t2.setAttribute('x','50');t2.setAttribute('y','59');t2.setAttribute('text-anchor','middle');
+  t2.setAttribute('fill','#4d566b');t2.setAttribute('font-family','Space Mono,monospace');
+  t2.setAttribute('font-size','7');t2.textContent='processos';svg.appendChild(t2);
+  const leg=document.getElementById('donutLeg');leg.innerHTML='';
+  for(const[sit,cnt]of entries){const d=document.createElement('div');d.className='leg-row';d.innerHTML=`<div class="leg-dot" style="background:${C[sit]||'#888'}"></div><span class="leg-name">${sit}</span><span class="leg-n">${cnt}</span>`;leg.appendChild(d);}
+}
+
+function drawBars(){
+  const counts={},totals={};
+  for(const r of allData){totals[r.subassunto]=(totals[r.subassunto]||0)+1;if(r.dias_parado>30)counts[r.subassunto]=(counts[r.subassunto]||0)+1;}
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8),max=sorted[0]?.[1]||1,bl=document.getElementById('barList');bl.innerHTML='';
+  for(const[sub,cnt]of sorted){const tot=totals[sub]||1,lbl=sub.length>36?sub.slice(0,36)+'…':sub,d=document.createElement('div');
+  d.innerHTML=`<div class="bar-top"><span class="bar-name" title="${sub}">${lbl}</span><span class="bar-nums">${cnt} atrasados / ${tot} total</span></div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(cnt/max*100)}%"></div></div>`;bl.appendChild(d);}
+}
+
+function fillFilters(){
+  const subs=[...new Set(allData.map(r=>r.subassunto))].sort(),sel=document.getElementById('fSub');
+  sel.innerHTML='<option value="">Todos subassuntos</option>';
+  subs.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.appendChild(o);});
+}
+
+function sortBy(col){if(sortCol===col)sortDir=sortDir==='asc'?'desc':'asc';else{sortCol=col;sortDir=col==='dias_parado'?'desc':'asc';}renderTable();}
+function toggleLate(){onlyLate=!onlyLate;document.getElementById('btnLate').classList.toggle('on',onlyLate);renderTable();}
+
+function renderTable(){
+  const q=document.getElementById('srch').value.toLowerCase(),fSit=document.getElementById('fSit').value,fSub=document.getElementById('fSub').value;
+  let f=allData.filter(r=>{if(fSit&&r.situacao!==fSit)return false;if(fSub&&r.subassunto!==fSub)return false;if(onlyLate&&r.dias_parado<=30)return false;if(q)return r.numero.toLowerCase().includes(q)||r.subassunto.toLowerCase().includes(q)||r.situacao.toLowerCase().includes(q);return true;});
+  f.sort((a,b)=>{let va=a[sortCol],vb=b[sortCol];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}return va<vb?(sortDir==='asc'?-1:1):va>vb?(sortDir==='asc'?1:-1):0;});
+  document.getElementById('tcnt').textContent=`${f.length} processos`;
+  const body=document.getElementById('tbody');body.innerHTML='';
+  const SM={'Tramitando':'b-tram','Aberto':'b-abert','Em Análise':'b-anal','Paralisado':'b-par'};
+  for(const r of f){
+    const at=r.dias_parado>30,tr=document.createElement('tr');if(at)tr.className='late';
+    let dc='db-ok';if(r.dias_parado>90)dc='db-crit';else if(r.dias_parado>30)dc='db-bad';else if(r.dias_parado>10)dc='db-warn';
+    const df=r.data_tramite?new Date(r.data_tramite+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+    tr.innerHTML=`<td class="tn">${r.numero}</td><td class="tdate">${df}</td><td><span class="badge ${SM[r.situacao]||''}">${r.situacao}</span></td><td class="tsub" title="${r.subassunto}">${r.subassunto}</td><td><span class="db ${dc}">${at?'⚠ ':''}${r.dias_str||r.dias_parado+' Dias'}</span></td>`;
+    body.appendChild(tr);
+  }
+}
+
+async function loadHistorico(){
+  try{
+    const snaps=await supa.get('snapshots_diarios?select=*&order=data_snapshot.asc&limit=30');
+    if(!snaps?.length)return;
+    if(hChart)hChart.destroy();
+    const ctx=document.getElementById('histChart').getContext('2d');
+    hChart=new Chart(ctx,{type:'line',data:{labels:snaps.map(s=>new Date(s.data_snapshot+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})),datasets:[{label:'Atrasados (+30d)',data:snaps.map(s=>s.total_atrasados),borderColor:'#f04c5a',backgroundColor:'rgba(240,76,90,0.07)',tension:.35,fill:true,pointRadius:3,pointBackgroundColor:'#f04c5a'},{label:'Total',data:snaps.map(s=>s.total_processos),borderColor:'#4f7cff',backgroundColor:'rgba(79,124,255,0.05)',tension:.35,fill:true,pointRadius:2,pointBackgroundColor:'#4f7cff'}]},options:{responsive:true,plugins:{legend:{labels:{color:'#8892a8',font:{family:'Space Mono',size:10}}}},scales:{x:{ticks:{color:'#4d566b',font:{family:'Space Mono',size:9}},grid:{color:'#1e2230'}},y:{ticks:{color:'#4d566b',font:{family:'Space Mono',size:9}},grid:{color:'#1e2230'}}}}});
+    const grid=document.getElementById('hgrid');grid.innerHTML='';
+    const rev=[...snaps].reverse().slice(0,14);
+    for(let i=0;i<rev.length;i++){
+      const s=rev[i],prev=rev[i+1];
+      let trend='<span class="teq">— igual</span>';
+      if(prev){const d=s.total_atrasados-prev.total_atrasados;if(d>0)trend=`<span class="tup">▲ +${d}</span>`;else if(d<0)trend=`<span class="tdn">▼ ${d}</span>`;}
+      const c=document.createElement('div');c.className='hcard';
+      c.innerHTML=`<div class="hdate">${new Date(s.data_snapshot+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}</div><div class="htot">${s.total_processos}</div><div class="hbad">⚠ ${s.total_atrasados} atrasados</div><div class="hpct">${s.pct_atrasados}% do total</div><div class="htrend">${trend}</div>`;
+      grid.appendChild(c);
+    }
+  }catch(e){console.warn(e.message);}
+}
+
+async function loadRelatorios(){
+  try{
+    const rels=await supa.get('relatorios?select=*&order=importado_em.desc&limit=30');
+    const list=document.getElementById('rlist');
+    if(!rels?.length){list.innerHTML='<div style="font-size:13px;color:var(--muted)">Nenhuma importação ainda.</div>';return;}
+    list.innerHTML='';
+    for(const r of rels){const d=document.createElement('div');d.className='ritem';d.innerHTML=`<div class="rdate">${new Date(r.importado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div><div class="rfile">📄 ${r.nome_arquivo||'—'}</div><div class="rstats"><span class="rtot">${r.total_registros} processos</span><span class="rbad">⚠ ${r.total_atrasados} atrasados</span></div>`;list.appendChild(d);}
+  }catch(e){console.warn(e.message);}
+}
+
+init();
+</script>
+</body>
+</html>
