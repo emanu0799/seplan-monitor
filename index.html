@@ -536,9 +536,9 @@ function renderTable(){
   f.sort((a,b)=>{let va=a[sortCol],vb=b[sortCol];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}return va<vb?(sortDir==='asc'?-1:1):va>vb?(sortDir==='asc'?1:-1):0;});
   document.getElementById('tcnt').textContent=`${f.length} processos`;
   // Update KPIs based on filtered data
-  const sits=getSelectedSits();
   const fSub2=document.getElementById('fSub').value;
-  if(sits.length>0||fSub2||onlyLate){
+  const activeSits=getSelectedSits();
+  if(activeSits.length>0||fSub2||onlyLate){
     updateKPIs(f);
   } else {
     updateKPIs(allData);
