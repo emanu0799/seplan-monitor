@@ -376,7 +376,7 @@ function fmtDate(s){if(!s)return'—';const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/
 
 function extractFromLines(lines){
   const records=[];
-  const mainRx=/^(\d{1,6}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(Tramitando|Aberto|Em Análise|Paralisado|Em Readequação)\s+SEPLAN\s+(.+?)\s+(Hoje|\d+\s*Dias?)$/i;
+  const mainRx=/^(\d{1,6}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(Tramitando|Aberto|Em An[aá]lise|Paralisado|Em Readequa[çc][aã]o)\s+SEPLAN\s+(.+?)\s+(Hoje|\d+\s*Dias?)$/i;
   const contRx=/^\d{2}:\d{2}:\d{2}\s+(.+)$/;
   const caps2Rx=/^[A-ZÁÉÍÓÚÇÃÕ][A-ZÁÉÍÓÚÇÃÕ/ ]{3,}$/;
   for(let i=0;i<lines.length;i++){
