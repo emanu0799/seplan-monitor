@@ -146,6 +146,7 @@ td{padding:8px 13px;vertical-align:middle;white-space:nowrap}
 .b-abert{background:rgba(245,166,35,.12);color:#f5c35a}
 .b-anal{background:rgba(245,166,35,.08);color:var(--warn)}
 .b-par{background:rgba(155,109,255,.12);color:#c4a0ff}
+.b-read{background:rgba(0,203,169,.12);color:#00cba9}
 .db{display:inline-flex;align-items:center;gap:3px;font-family:'Space Mono',monospace;font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700}
 .db-ok{background:rgba(39,196,122,.1);color:#52e09a}
 .db-warn{background:rgba(245,166,35,.1);color:#f5c35a}
@@ -264,6 +265,7 @@ td{padding:8px 13px;vertical-align:middle;white-space:nowrap}
             <label class="ms-item"><input type="checkbox" value="Aberto" onchange="onSitChange()"><span>Aberto</span></label>
             <label class="ms-item"><input type="checkbox" value="Em Análise" onchange="onSitChange()"><span>Em Análise</span></label>
             <label class="ms-item"><input type="checkbox" value="Paralisado" onchange="onSitChange()"><span>Paralisado</span></label>
+            <label class="ms-item"><input type="checkbox" value="Em Readequação" onchange="onSitChange()"><span>Em Readequação</span></label>
           </div>
         </div>
         <select class="fsel" id="fSub" onchange="renderTable()"><option value="">Todos subassuntos</option></select>
@@ -374,7 +376,7 @@ function fmtDate(s){if(!s)return'—';const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/
 
 function extractFromLines(lines){
   const records=[];
-  const mainRx=/^(\d{1,6}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(Tramitando|Aberto|Em Análise|Paralisado)\s+SEPLAN\s+(.+?)\s+(Hoje|\d+\s*Dias?)$/i;
+  const mainRx=/^(\d{1,6}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})\s+(Tramitando|Aberto|Em Análise|Paralisado|Em Readequação)\s+SEPLAN\s+(.+?)\s+(Hoje|\d+\s*Dias?)$/i;
   const contRx=/^\d{2}:\d{2}:\d{2}\s+(.+)$/;
   const caps2Rx=/^[A-ZÁÉÍÓÚÇÃÕ][A-ZÁÉÍÓÚÇÃÕ/ ]{3,}$/;
   for(let i=0;i<lines.length;i++){
@@ -416,7 +418,16 @@ async function loadLatest(){
 }
 
 function updateDashboard(){
-  const total=allData.length,at=allData.filter(r=>r.dias_parado>30).length,ed=total-at,par=allData.filter(r=>r.situacao==='Paralisado').length,an=allData.filter(r=>r.situacao==='Em Análise').length;
+  updateKPIs(allData);
+  drawDonut();drawBars();fillFilters();renderTable();
+}
+
+function updateKPIs(data){
+  const total=data.length;
+  const at=data.filter(r=>r.dias_parado>30).length;
+  const ed=total-at;
+  const par=data.filter(r=>r.situacao==='Paralisado').length;
+  const an=data.filter(r=>r.situacao==='Em Análise').length;
   document.getElementById('sTotal').textContent=total;
   document.getElementById('sAtrasados').textContent=at;
   document.getElementById('sAtrasadosPct').textContent=total?`${Math.round(at/total*100)}% do total`:'—';
@@ -424,7 +435,6 @@ function updateDashboard(){
   document.getElementById('sEmDiaPct').textContent=total?`${Math.round(ed/total*100)}% do total`:'—';
   document.getElementById('sParalisados').textContent=par;
   document.getElementById('sAnalise').textContent=an;
-  drawDonut();drawBars();fillFilters();renderTable();
 }
 
 function drawDonut(){
@@ -525,8 +535,16 @@ function renderTable(){
   let f=allData.filter(r=>{if(sits.length>0&&!sits.includes(r.situacao))return false;if(fSub&&r.subassunto!==fSub)return false;if(onlyLate&&r.dias_parado<=30)return false;if(q)return r.numero.toLowerCase().includes(q)||r.subassunto.toLowerCase().includes(q)||r.situacao.toLowerCase().includes(q);return true;});
   f.sort((a,b)=>{let va=a[sortCol],vb=b[sortCol];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}return va<vb?(sortDir==='asc'?-1:1):va>vb?(sortDir==='asc'?1:-1):0;});
   document.getElementById('tcnt').textContent=`${f.length} processos`;
+  // Update KPIs based on filtered data
+  const sits=getSelectedSits();
+  const fSub2=document.getElementById('fSub').value;
+  if(sits.length>0||fSub2||onlyLate){
+    updateKPIs(f);
+  } else {
+    updateKPIs(allData);
+  }
   const body=document.getElementById('tbody');body.innerHTML='';
-  const SM={'Tramitando':'b-tram','Aberto':'b-abert','Em Análise':'b-anal','Paralisado':'b-par'};
+  const SM={'Tramitando':'b-tram','Aberto':'b-abert','Em Análise':'b-anal','Paralisado':'b-par','Em Readequação':'b-read'};
   for(const r of f){
     const at=r.dias_parado>30,tr=document.createElement('tr');if(at)tr.className='late';
     let dc='db-ok';if(r.dias_parado>90)dc='db-crit';else if(r.dias_parado>30)dc='db-bad';else if(r.dias_parado>10)dc='db-warn';
