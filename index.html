@@ -406,9 +406,17 @@ async function loadLatest(){
     const rels=await supa.get('relatorios?select=*&order=importado_em.desc&limit=1');
     if(!rels?.length)return;
     const rel=rels[0];
-    const procs=await supa.get(`processos?relatorio_id=eq.${rel.id}&select=*&order=dias_parado.desc`);
-    if(!procs?.length)return;
-    allData=procs;
+    // Fetch all records with pagination (Supabase default limit is 1000)
+    let allProcs=[], from=0, pageSize=1000;
+    while(true){
+      const page=await supa.get(`processos?relatorio_id=eq.${rel.id}&select=*&order=dias_parado.desc&limit=${pageSize}&offset=${from}`);
+      if(!page?.length)break;
+      allProcs=[...allProcs,...page];
+      if(page.length<pageSize)break;
+      from+=pageSize;
+    }
+    if(!allProcs.length)return;
+    allData=allProcs;
     const d=new Date(rel.importado_em);
     document.getElementById('htime').textContent=`${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
     updateDashboard();
